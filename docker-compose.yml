@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  # 1. База данных PostgreSQL
+  postgres:
+    image: postgres:15-alpine
+    container_name: pipeline_postgres
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: pipeline
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  # 2. Брокер сообщений Redis
+  redis:
+    image: redis:7-alpine
+    container_name: pipeline_redis
+    ports:
+      - "6379:6379"
+
+  # 3. Микросервис FastAPI
+  api-service:
+    build: ./api-service
+    container_name: pipeline_api
+    command: uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
+    ports:
+      - "3000:8000"
+    env_file:
+      - .env
+    depends_on:
+      - postgres
+      - redis
+
+  # 4. Микросервис Celery Worker
+  worker-service:
+    build: ./worker-service
+    container_name: pipeline_worker
+    command: celery -A worker.celery_app.celery_app worker --loglevel=info --concurrency=4
+    env_file:
+      - .env
+    depends_on:
+      - redis
+      - postgres
+    volumes:
+      - ./cache:/cache
+
+volumes:
+  postgres_data:

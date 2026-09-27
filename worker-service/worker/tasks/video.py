@@ -1,0 +1,127 @@
+from celery import shared_task
+from celery.signals import worker_shutdown
+import os
+import yt_dlp
+from yt_dlp.utils import DownloadError
+import requests
+from worker.enums import TaskStatus
+from worker.models import VideoContext
+from worker.notifier import TelegramNotifier
+from dataclasses import asdict
+from worker.cache import Cache
+from worker.utils import fail_task, update_status
+
+token = os.getenv("BOT_TOKEN") or ""
+INTERNAL_SECRET = os.getenv("INTERNAL_SECRET") or ""
+ydl_opts = {
+    "noplaylist": True,
+    "format": "bestaudio/best",
+}
+
+
+def get_download_options(uuid: str) -> dict:
+    return {
+    "noplaylist": True,
+    "format": "m4a/bestaudio/best",
+    "outtmpl": f"/tmp/{uuid}.%(ext)s",
+    "quiet": True,
+    "no_warnings": True,
+    "postprocessors": [{
+        "key": "FFmpegExtractAudio",
+        "preferredcodec": "mp3"
+    }]
+}
+
+
+@shared_task(name="video.download")
+def download_video(user_id: int, uuid: str, url: str, platform: str):
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        update_status(uuid, TaskStatus.downloading)
+        try:
+            info = ydl.extract_info(url, download=False)
+        except DownloadError as e:
+            fail_task(user_id, uuid, str(e))
+            raise
+        duration = info.get("duration")
+        if not duration: # TODO: запретить скачивание для бесплатного тарифа 30 минутами видео (или меньше)
+            fail_task(user_id, uuid, "Invalid link (duration)")
+            raise DownloadError("Invalid link (duration)")
+        if cached_ctx := Cache.get_transcription(info.get("id", "")):
+            transcription_path = f"/tmp/{uuid}.txt"
+            with open(transcription_path, "w") as f:
+                f.write(cached_ctx.transcription)
+            ctx = VideoContext(
+                context_type="video",
+                uuid=uuid,
+                user_id=user_id,
+                platform=platform,
+                platform_id=cached_ctx.platform_id,
+                title=cached_ctx.title,
+                description=cached_ctx.description,
+                transcription_path=transcription_path,
+                audio_path=""
+            )
+            return asdict(ctx)
+    with yt_dlp.YoutubeDL(get_download_options(uuid)) as ydl:
+        info = ydl.extract_info(url, download=True)
+        downloads = info.get("requested_downloads", [{}])
+        path = downloads[0].get("filepath")
+        if not path:
+            fail_task(user_id, uuid, "Invalid link (requested_downloads)")
+            raise DownloadError("Invalid link (requested_downloads)")
+        ctx = VideoContext(
+            context_type="video",
+            uuid=uuid,
+            user_id=user_id,
+            platform_id=info.get("id"),
+            platform=platform,
+            title=info.get("title", ""),
+            description=info.get("description", ""),
+            audio_path=path,
+        )
+        return asdict(ctx)
+
+
+@worker_shutdown.connect
+def shutdown(**kwargs):
+    try:
+        TelegramNotifier.shutdown()
+    except Exception:
+        pass
+
+
+
+
+
+
+
+
+"""
+
+Когда MVP готов, начинаешь делать его "боевым":
+добавить секрет к webhook
+
+логирование;
+retry;
+таймауты;
+обработка ошибок;
+health;
+request_id.
+
+То есть ты ничего не меняешь в бизнес-логике, а повышаешь надежность.
+
+Этап 3. Масштабирование
+
+Если захочешь впечатлить работодателя:
+
+Prometheus;
+Grafana;
+метрики Celery;
+мониторинг Redis;
+Docker Healthcheck;
+CI/CD (GitHub Actions);
+тесты;
+линтеры;
+pre-commit.
+
+"""

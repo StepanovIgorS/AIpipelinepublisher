@@ -1,0 +1,8 @@
+celery
+redis
+aiogram
+yt-dlp
+openai
+python-dotenv
+requests
+beautifulsoup4

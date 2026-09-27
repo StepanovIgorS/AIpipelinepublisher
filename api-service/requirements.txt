@@ -1,0 +1,7 @@
+fastapi
+celery
+redis
+aiogram
+python-dotenv
+asyncpg
+uvicorn
