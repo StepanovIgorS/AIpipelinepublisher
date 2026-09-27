@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+
+# Environment
+.env
+
+# IDE
+.idea/
+.vscode/
+
+# Runtime
+Cache/
+tmp/
+*.log
+
+# Media / generated files
+*.mp3
+*.mp4
+*.m4a
+*.wav
+
+# PostgreSQL / Docker
+postgres_data/
