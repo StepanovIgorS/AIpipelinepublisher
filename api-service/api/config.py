@@ -11,6 +11,6 @@ class Settings:
     TELEGRAM_SECRET_TOKEN: str = os.getenv('TELEGRAM_SECRET_TOKEN')
     INTERNAL_SECRET: str = os.getenv('INTERNAL_SECRET')
     VIDEO_LINKS: list[str] = ["youtu.be", "youtube.com", "rutube.ru", "vkvideo.ru", "www.youtu.be", "www.youtube.com", "www.rutube.ru", "www.vkvideo.ru"]
-    ARTICLE_LINKS: list[str] = ["habr.com", "www.habr.com"]
+    ARTICLE_LINKS: list[str] = ["habr.com", "www.habr.com", "pikabu.ru", "www.pikabu.ru", "dzen.ru", "www.dzen.ru"]
 
 settings = Settings()

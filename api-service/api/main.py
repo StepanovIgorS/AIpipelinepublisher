@@ -137,7 +137,8 @@ async def prompt_chosen(message: types.Message, state: FSMContext):
     await state.clear()
 
 def classify_platform(url: str) -> str:
-    hostname = urlparse(url).hostname
+    parsed = urlparse(url)
+    hostname = parsed.hostname
     if not hostname:
         return "unknown"
 
@@ -148,6 +149,8 @@ def classify_platform(url: str) -> str:
         "rutube.ru": "rutube",
         "vkbideo.ru": "vkbideo",
         "habr.com": "habr",
+        "pikabu.ru": "pikabu",
+        "dzen.ru": "dzen"
     }
 
     if hostname not in settings.VIDEO_LINKS + settings.ARTICLE_LINKS:
@@ -155,18 +158,20 @@ def classify_platform(url: str) -> str:
 
     for domain, platform in domain_to_platform.items():
         if hostname == domain or hostname.endswith(f".{domain}"):
+            if platform == "dzen" and parsed.path.strip("/").split("/")[0] != "a":
+                return "unknown"
             return platform
 
     return hostname
 
-@dp.message(F.chat.type == "private", StateFilter(None))
+@dp.message(F.chat.type == "private", StateFilter(None)) # todo: проверка регистрации пользователя
 async def on_message(message: types.Message):
     if message.from_user is None or not message.text:
         return None
     try:
         url = urlparse(message.text)
         platform = classify_platform(message.text)
-        if not url.hostname or platform == "unknown":
+        if platform == "unknown":
             return await message.answer(FAILED_PARSE_LINK_MSG)
     except ValueError:
         return await message.answer(FAILED_PARSE_LINK_MSG)
