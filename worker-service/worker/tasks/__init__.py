@@ -1,1 +1,1 @@
-from . import video, ai, article
+from . import video, ai, article, beat

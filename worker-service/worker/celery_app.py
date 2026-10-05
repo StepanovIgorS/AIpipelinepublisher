@@ -10,4 +10,10 @@ celery_app = Celery(
     backend=REDIS_URL
 )
 Cache.init()
+celery_app.conf.beat_schedule = {
+    "cleanup-cache": {
+        "task": "cache.cleanup",
+        "schedule": 120.0,
+    }
+}
 celery_app.autodiscover_tasks(["worker.tasks"])

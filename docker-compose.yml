@@ -47,5 +47,16 @@ services:
     volumes:
       - ./cache:/cache
 
+  # 5. Микросервис Celery Beat
+  beat-service:
+    build: ./worker-service
+    container_name: pipeline_beat
+    command: celery -A worker.celery_app.celery_app beat --loglevel=info -s /tmp/celerybeat-schedule
+    env_file:
+      - .env
+    depends_on:
+      - redis
+      - postgres
+
 volumes:
   postgres_data:
