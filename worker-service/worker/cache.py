@@ -1,11 +1,13 @@
-from pathlib import Path
-from worker.models import VideoCache, VideoContext
 import json
 from dataclasses import asdict
+from pathlib import Path
+
+from worker.models import VideoCache, VideoContext
 
 CACHE_DIR = Path("/cache")
 TRANSCRIPTS_DIR = CACHE_DIR / "transcripts"
 ARTICLES_DIR = CACHE_DIR / "articles"
+
 
 class Cache:
     @staticmethod
@@ -16,7 +18,12 @@ class Cache:
     @staticmethod
     def save_transcription(ctx: VideoContext, transcription: str):
         path = TRANSCRIPTS_DIR / ctx.platform_id
-        cache = VideoCache(platform_id=ctx.platform_id, title=ctx.title, description=ctx.description, transcription=transcription)
+        cache = VideoCache(
+            platform_id=ctx.platform_id,
+            title=ctx.title,
+            description=ctx.description,
+            transcription=transcription,
+        )
         serialized = json.dumps(asdict(cache))
         path.write_text(serialized)
 

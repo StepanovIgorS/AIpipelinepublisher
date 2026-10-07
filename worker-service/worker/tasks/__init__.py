@@ -1,1 +1,1 @@
-from . import video, ai, article, beat
+from . import ai, article, beat, video  # noqa: F401

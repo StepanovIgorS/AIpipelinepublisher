@@ -52,6 +52,7 @@ class TaskStatus(StrEnum):
     error = "error"
     completed = "completed"
 
+
 class UpdateStatusRequest(BaseModel):
     status: TaskStatus
     error: str | None = None

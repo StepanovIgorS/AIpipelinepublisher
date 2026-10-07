@@ -1,19 +1,28 @@
+import math
+import os
+from collections.abc import Iterator
 from dataclasses import asdict
 from io import BytesIO
-from collections.abc import Iterator
 from typing import BinaryIO
 
 from celery import shared_task
-from openai import OpenAI
-from openai.types.chat import ChatCompletionSystemMessageParam, ChatCompletionUserMessageParam
-from openai import APITimeoutError
-import os
-import math
-from worker.enums import TaskStatus
-from worker.models import VideoContext, Context, ArticleContext
-from worker.notifier import TelegramNotifier
+from openai import APITimeoutError, OpenAI
+from openai.types.chat import (
+    ChatCompletionSystemMessageParam,
+    ChatCompletionUserMessageParam,
+)
+
 from worker.cache import Cache
-from worker.utils import get_context_from_dict, update_status, complete, fail_task, cleanup
+from worker.enums import TaskStatus
+from worker.models import ArticleContext, Context, VideoContext
+from worker.notifier import TelegramNotifier
+from worker.utils import (
+    cleanup,
+    complete,
+    fail_task,
+    get_context_from_dict,
+    update_status,
+)
 
 INTERNAL_SECRET = os.getenv("INTERNAL_SECRET") or ""
 STT_MODEL = os.getenv("AI_STT_MODEL") or ""
@@ -57,10 +66,15 @@ client = OpenAI(
     api_key=os.getenv("AI_KEY"),
 )
 
-def build_summary_prompt(prompt: str, ctx: Context, transcription: str) -> list[ChatCompletionSystemMessageParam | ChatCompletionUserMessageParam]:
+
+def build_summary_prompt(
+    prompt: str, ctx: Context, transcription: str
+) -> list[ChatCompletionSystemMessageParam | ChatCompletionUserMessageParam]:
     return [
         ChatCompletionSystemMessageParam(role="system", content=SYSTEM_PROMPT),
-        ChatCompletionUserMessageParam(role="user", content=f"""
+        ChatCompletionUserMessageParam(
+            role="user",
+            content=f"""
 <user_request>
 {prompt}
 </user_request>
@@ -75,20 +89,10 @@ def build_summary_prompt(prompt: str, ctx: Context, transcription: str) -> list[
 
 <Transcript>
 {transcription}
-</Transcript>""")
+</Transcript>""",
+        ),
     ]
 
-# class PrepareAudio:
-#     def __init__(self, file: BufferedReader):
-#         self.file = file
-#         self.file_size = os.fstat(file.fileno()).st_size
-#
-#     def __iter__(self):
-#         return self
-#
-#     def __next__(self):
-#         if self.file_size <=MAX_AUDIO_SIZE:
-#             return self.file
 
 def prepare_audio(file: BinaryIO) -> Iterator[BinaryIO]:
     size = os.fstat(file.fileno()).st_size
@@ -98,7 +102,6 @@ def prepare_audio(file: BinaryIO) -> Iterator[BinaryIO]:
     count = math.ceil(size / MAX_AUDIO_SIZE)
     for i in range(count):
         yield BytesIO(file.read(MAX_AUDIO_SIZE))
-
 
 
 @shared_task(name="ai.transcribe")
@@ -113,13 +116,16 @@ def ai_transcribe(ctx: dict):
         for audio in prepare_audio(audio_file):
             try:
                 transcription = client.audio.transcriptions.create(
-                    file=audio,
-                    model=STT_MODEL,
-                    timeout=30
+                    file=audio, model=STT_MODEL, timeout=30
                 )
             except APITimeoutError:
                 update_status(ctx.uuid, TaskStatus.error)
-                fail_task(ctx.user_id, ctx.uuid, "Transcription timeout", "😔 Упс! Не удалось распознать аудио. Попробуй отправить ссылку еще раз — и я сразу подготовлю красивую выжимку, оформлю пост в нужном стиле и отправлю его в канал. 🚀")
+                fail_task(
+                    ctx.user_id,
+                    ctx.uuid,
+                    "Transcription timeout",
+                    "😔 Упс! Не удалось распознать аудио. Попробуй отправить ссылку еще раз — и я сразу подготовлю красивую выжимку, оформлю пост в нужном стиле и отправлю его в канал. 🚀",
+                )
                 raise
             full_transcription += "\n" + transcription.text
         with open(transcription_path, "w") as f:
@@ -141,19 +147,18 @@ def ai_summary(ctx: dict, prompt: str):
             transcription = transcription_file.read()
     try:
         summary = client.chat.completions.create(
-            model=TEXT_MODEL,
-            messages=build_summary_prompt(prompt, ctx, transcription)
+            model=TEXT_MODEL, messages=build_summary_prompt(prompt, ctx, transcription)
         )
     except APITimeoutError:
         update_status(ctx.uuid, TaskStatus.error)
-        fail_task(ctx.user_id, ctx.uuid, "Summary timeout", "😔 Упс! Не удалось обработать текст. Попробуй отправить ссылку еще раз — и я сразу подготовлю красивую выжимку, оформлю пост в нужном стиле и отправлю его в канал. 🚀")
+        fail_task(
+            ctx.user_id,
+            ctx.uuid,
+            "Summary timeout",
+            "😔 Упс! Не удалось обработать текст. Попробуй отправить ссылку еще раз — и я сразу подготовлю красивую выжимку, оформлю пост в нужном стиле и отправлю его в канал. 🚀",
+        )
         cleanup(ctx)
         raise
     text = summary.choices[0].message.content or ""
     TelegramNotifier.send_message(ctx.user_id, text)
     complete(ctx)
-
-# TODO - TTL для кэша
-# - Очистка старых файлов
-# - Статьи
-# - Docker volume

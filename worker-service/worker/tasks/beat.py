@@ -1,6 +1,7 @@
-from celery import shared_task
+import time
 from pathlib import Path
-from datetime import datetime
+
+from celery import shared_task
 
 CACHE_DIR = Path("/cache")
 TRANSCRIPTS_DIR = CACHE_DIR / "transcripts"
@@ -9,8 +10,7 @@ ARTICLES_DIR = CACHE_DIR / "articles"
 
 def cleanup_directory(directory: Path, ttl: int):
     for path in directory.glob("*"):
-        time_diff = datetime.now() - datetime.fromtimestamp(path.stat().st_atime)
-        if time_diff.total_seconds() > ttl:
+        if time.time() - path.stat().st_atime > ttl:
             path.unlink(missing_ok=True)
 
 

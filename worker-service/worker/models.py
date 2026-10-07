@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 
+
 @dataclass
 class Context:
     context_type: str
@@ -10,9 +11,9 @@ class Context:
     platform: str
     platform_id: str
 
+
 @dataclass
 class VideoContext(Context):
-
     audio_path: str
     transcription_path: str | None = None
 
@@ -20,9 +21,11 @@ class VideoContext(Context):
     def has_transcription(self):
         return self.transcription_path is not None
 
+
 @dataclass
 class ArticleContext(Context):
     article_path: str
+
 
 @dataclass
 class VideoCache:

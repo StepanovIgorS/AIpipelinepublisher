@@ -1,17 +1,17 @@
+import os
+from dataclasses import asdict
+
+import yt_dlp
 from celery import shared_task
 from celery.signals import worker_shutdown
-import os
-import yt_dlp
 from yt_dlp.utils import DownloadError
+
+from worker.cache import Cache
 from worker.enums import TaskStatus
 from worker.models import VideoContext
 from worker.notifier import TelegramNotifier
-from dataclasses import asdict
-from worker.cache import Cache
 from worker.utils import fail_task, update_status
 
-token = os.getenv("BOT_TOKEN") or ""
-INTERNAL_SECRET = os.getenv("INTERNAL_SECRET") or ""
 ydl_opts = {
     "noplaylist": True,
     "format": "bestaudio/best",
@@ -20,16 +20,13 @@ ydl_opts = {
 
 def get_download_options(uuid: str) -> dict:
     return {
-    "noplaylist": True,
-    "format": "m4a/bestaudio/best",
-    "outtmpl": f"/tmp/{uuid}.%(ext)s",
-    "quiet": True,
-    "no_warnings": True,
-    "postprocessors": [{
-        "key": "FFmpegExtractAudio",
-        "preferredcodec": "mp3"
-    }]
-}
+        "noplaylist": True,
+        "format": "m4a/bestaudio/best",
+        "outtmpl": f"/tmp/{uuid}.%(ext)s",
+        "quiet": True,
+        "no_warnings": True,
+        "postprocessors": [{"key": "FFmpegExtractAudio", "preferredcodec": "mp3"}],
+    }
 
 
 @shared_task(name="video.download")
@@ -42,11 +39,16 @@ def download_video(user_id: int, uuid: str, url: str, platform: str, is_premium:
             fail_task(user_id, uuid, str(e))
             raise
         duration = info.get("duration")
-        if not duration: # TODO: запретить скачивание для бесплатного тарифа 30 минутами видео (или меньше)
+        if not duration:
             fail_task(user_id, uuid, "Invalid link (duration)")
             raise DownloadError("Invalid link (duration)")
         if not is_premium and duration > 1800:  # 30 minutes
-            fail_task(user_id, uuid, "Invalid link (duration)", "Ты не можешь скачивать видео длиннее 30 минут без премиум подписки.")
+            fail_task(
+                user_id,
+                uuid,
+                "Invalid link (duration)",
+                "Ты не можешь скачивать видео длиннее 30 минут без премиум подписки.",
+            )
             raise DownloadError("Invalid link (duration)")
         if cached_ctx := Cache.get_transcription(info.get("id", "")):
             transcription_path = f"/tmp/{uuid}.txt"
@@ -61,7 +63,7 @@ def download_video(user_id: int, uuid: str, url: str, platform: str, is_premium:
                 title=cached_ctx.title,
                 description=cached_ctx.description,
                 transcription_path=transcription_path,
-                audio_path=""
+                audio_path="",
             )
             return asdict(ctx)
     with yt_dlp.YoutubeDL(get_download_options(uuid)) as ydl:
@@ -90,12 +92,6 @@ def shutdown(**kwargs):
         TelegramNotifier.shutdown()
     except Exception:
         pass
-
-
-
-
-
-
 
 
 """

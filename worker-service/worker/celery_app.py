@@ -1,14 +1,12 @@
-from celery import Celery
 import os
+
+from celery import Celery
+
 from worker.cache import Cache
 
-REDIS_URL = os.getenv('REDIS_URL')
+REDIS_URL = os.getenv("REDIS_URL")
 
-celery_app = Celery(
-    'worker_pipeline',
-    broker=REDIS_URL,
-    backend=REDIS_URL
-)
+celery_app = Celery("worker_pipeline", broker=REDIS_URL, backend=REDIS_URL)
 Cache.init()
 celery_app.conf.beat_schedule = {
     "cleanup-cache": {
