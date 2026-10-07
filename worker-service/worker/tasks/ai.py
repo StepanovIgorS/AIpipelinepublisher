@@ -1,19 +1,19 @@
 from dataclasses import asdict
-from io import BufferedReader, BytesIO
+from io import BytesIO
 from collections.abc import Iterator
 from typing import BinaryIO
-from typing import Any, Generator
 
 from celery import shared_task
 from openai import OpenAI
 from openai.types.chat import ChatCompletionSystemMessageParam, ChatCompletionUserMessageParam
+from openai import APITimeoutError
 import os
 import math
 from worker.enums import TaskStatus
 from worker.models import VideoContext, Context, ArticleContext
 from worker.notifier import TelegramNotifier
 from worker.cache import Cache
-from worker.utils import get_context_from_dict, update_status, complete
+from worker.utils import get_context_from_dict, update_status, complete, fail_task, cleanup
 
 INTERNAL_SECRET = os.getenv("INTERNAL_SECRET") or ""
 STT_MODEL = os.getenv("AI_STT_MODEL") or ""
@@ -111,10 +111,16 @@ def ai_transcribe(ctx: dict):
     with open(ctx.audio_path, "rb") as audio_file:
         full_transcription = ""
         for audio in prepare_audio(audio_file):
-            transcription = client.audio.transcriptions.create(
-                file=audio,
-                model=STT_MODEL
-            )
+            try:
+                transcription = client.audio.transcriptions.create(
+                    file=audio,
+                    model=STT_MODEL,
+                    timeout=30
+                )
+            except APITimeoutError:
+                update_status(ctx.uuid, TaskStatus.error)
+                fail_task(ctx.user_id, ctx.uuid, "Transcription timeout", "😔 Упс! Не удалось распознать аудио. Попробуй отправить ссылку еще раз — и я сразу подготовлю красивую выжимку, оформлю пост в нужном стиле и отправлю его в канал. 🚀")
+                raise
             full_transcription += "\n" + transcription.text
         with open(transcription_path, "w") as f:
             f.write(full_transcription)
@@ -133,10 +139,16 @@ def ai_summary(ctx: dict, prompt: str):
     if isinstance(ctx, ArticleContext):
         with open(ctx.article_path or "", "r") as transcription_file:
             transcription = transcription_file.read()
-    summary = client.chat.completions.create(
-        model=TEXT_MODEL,
-        messages=build_summary_prompt(prompt, ctx, transcription)
-    )
+    try:
+        summary = client.chat.completions.create(
+            model=TEXT_MODEL,
+            messages=build_summary_prompt(prompt, ctx, transcription)
+        )
+    except APITimeoutError:
+        update_status(ctx.uuid, TaskStatus.error)
+        fail_task(ctx.user_id, ctx.uuid, "Summary timeout", "😔 Упс! Не удалось обработать текст. Попробуй отправить ссылку еще раз — и я сразу подготовлю красивую выжимку, оформлю пост в нужном стиле и отправлю его в канал. 🚀")
+        cleanup(ctx)
+        raise
     text = summary.choices[0].message.content or ""
     TelegramNotifier.send_message(ctx.user_id, text)
     complete(ctx)

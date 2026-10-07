@@ -3,7 +3,6 @@ from celery.signals import worker_shutdown
 import os
 import yt_dlp
 from yt_dlp.utils import DownloadError
-import requests
 from worker.enums import TaskStatus
 from worker.models import VideoContext
 from worker.notifier import TelegramNotifier
@@ -34,7 +33,7 @@ def get_download_options(uuid: str) -> dict:
 
 
 @shared_task(name="video.download")
-def download_video(user_id: int, uuid: str, url: str, platform: str):
+def download_video(user_id: int, uuid: str, url: str, platform: str, is_premium: bool):
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         update_status(uuid, TaskStatus.downloading)
         try:
@@ -45,6 +44,9 @@ def download_video(user_id: int, uuid: str, url: str, platform: str):
         duration = info.get("duration")
         if not duration: # TODO: запретить скачивание для бесплатного тарифа 30 минутами видео (или меньше)
             fail_task(user_id, uuid, "Invalid link (duration)")
+            raise DownloadError("Invalid link (duration)")
+        if not is_premium and duration > 1800:  # 30 minutes
+            fail_task(user_id, uuid, "Invalid link (duration)", "Ты не можешь скачивать видео длиннее 30 минут без премиум подписки.")
             raise DownloadError("Invalid link (duration)")
         if cached_ctx := Cache.get_transcription(info.get("id", "")):
             transcription_path = f"/tmp/{uuid}.txt"

@@ -16,11 +16,11 @@ def get_context_from_dict(ctx: dict) -> Context:
     raise ValueError("Invalid context type")
 
 
-def fail_task(chat, uuid, reason):
+def fail_task(chat, uuid, reason, text = None):
     requests.post(f"http://api-service:8000/internal/status/{uuid}",
                   headers={"X-Internal-Token": INTERNAL_SECRET},
                   json={"status": TaskStatus.error, "error": reason})
-    TelegramNotifier.send_message(user_id=chat, text=error_text)
+    TelegramNotifier.send_message(user_id=chat, text=text if text else error_text)
 
 
 def complete(ctx: Context):
@@ -30,6 +30,13 @@ def complete(ctx: Context):
         if ctx.audio_path:
             os.remove(ctx.audio_path)
     requests.post(f"http://api-service:8000/internal/complete/{ctx.uuid}", headers={"X-Internal-Token": INTERNAL_SECRET}, timeout=5)
+
+def cleanup(ctx: Context):
+    if isinstance(ctx, VideoContext):
+        if ctx.transcription_path:
+            os.remove(ctx.transcription_path)
+        if ctx.audio_path:
+            os.remove(ctx.audio_path)
 
 def update_status(uuid: str, status: TaskStatus, error: str | None = None):
     if error:

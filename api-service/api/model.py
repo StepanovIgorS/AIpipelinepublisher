@@ -1,7 +1,9 @@
-from aiogram.fsm.state import State, StatesGroup
 from dataclasses import dataclass
 from enum import StrEnum
+
+from aiogram.fsm.state import State, StatesGroup
 from pydantic import BaseModel
+
 
 class Settings(StatesGroup):
     platform = State()
@@ -9,6 +11,10 @@ class Settings(StatesGroup):
     length = State()
     prompt = State()
 
+
+class Payments(StatesGroup):
+    choosing_subscription = State()
+    pending = State()
 
 
 class Platform(StrEnum):
