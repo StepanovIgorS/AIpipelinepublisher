@@ -306,7 +306,7 @@ def classify_platform(url: str) -> str:
         "youtube.com": "youtube",
         "youtu.be": "youtube",
         "rutube.ru": "rutube",
-        "vkbideo.ru": "vkbideo",
+        "vkvideo.ru": "vkvideo",
         "habr.com": "habr",
         "pikabu.ru": "pikabu",
         "dzen.ru": "dzen",
