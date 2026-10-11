@@ -1,6 +1,7 @@
 import json
 import os
 import re
+import logging
 from dataclasses import asdict
 
 import requests
@@ -12,7 +13,7 @@ from worker.models import ArticleContext
 from worker.utils import update_status
 
 INTERNAL_SECRET = os.getenv("INTERNAL_SECRET") or ""
-
+logger = logging.getLogger(__name__)
 
 def habr_parser(url: str) -> tuple[str, str]:
     response = requests.get(url, timeout=30)
@@ -102,6 +103,7 @@ ARTICLE_PARSERS = {"habr": habr_parser, "pikabu": pikabu_parser, "dzen": dzen_pa
 
 @shared_task(name="article.fetch")
 def article_fetch(user_id: int, uuid: str, url: str, platform: str):
+    logger.info("task %s fetching article: %s for platform: %s", uuid, url, platform)
     update_status(uuid, TaskStatus.downloading)
     parser = ARTICLE_PARSERS.get(platform)
     title, content = parser(url)
@@ -118,4 +120,5 @@ def article_fetch(user_id: int, uuid: str, url: str, platform: str):
         platform_id=url,
         article_path=article_path,
     )
+    logger.info("task %s article fetched", uuid)
     return asdict(ctx)

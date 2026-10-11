@@ -1,5 +1,7 @@
 import math
 import os
+import logging
+
 from collections.abc import Iterator
 from dataclasses import asdict
 from io import BytesIO
@@ -60,6 +62,7 @@ SYSTEM_PROMPT = """
 
 Твоя цель — сделать текст интересным, понятным и удобным для чтения."""
 MAX_AUDIO_SIZE = 24 * 1024 * 1024
+logger = logging.getLogger(__name__)
 
 client = OpenAI(
     base_url=os.getenv("AI_URL"),
@@ -109,17 +112,20 @@ def ai_transcribe(ctx: dict):
     ctx = VideoContext(**ctx)
     update_status(ctx.uuid, TaskStatus.transcribing)
     if ctx.has_transcription:
+        logger.info("task %s skipping transcribe due to cache for user %s", ctx.uuid, ctx.user_id)
         return asdict(ctx)
     transcription_path = f"/tmp/{ctx.uuid}.txt"
     with open(ctx.audio_path, "rb") as audio_file:
         full_transcription = ""
-        for audio in prepare_audio(audio_file):
+        for n, audio in enumerate(prepare_audio(audio_file)):
+            logger.debug("task %s transcribing audio chunk %d for user %s", ctx.uuid, n + 1, ctx.user_id)
             try:
                 transcription = client.audio.transcriptions.create(
                     file=audio, model=STT_MODEL, timeout=30
                 )
             except APITimeoutError:
                 update_status(ctx.uuid, TaskStatus.error)
+                logger.error("task %s transcription API timeout for chunk %d for user %s", ctx.uuid, n + 1, ctx.user_id)
                 fail_task(
                     ctx.user_id,
                     ctx.uuid,
@@ -132,6 +138,7 @@ def ai_transcribe(ctx: dict):
             f.write(full_transcription)
         ctx.transcription_path = transcription_path
         Cache.save_transcription(ctx, full_transcription)
+        logger.info("task %s transcription completed and saved to cache for user %s", ctx.uuid, ctx.user_id)
         return asdict(ctx)
 
 
@@ -140,9 +147,11 @@ def ai_summary(ctx: dict, prompt: str):
     ctx = get_context_from_dict(ctx)
     update_status(ctx.uuid, TaskStatus.summarizing)
     if isinstance(ctx, VideoContext):
+        logger.info("task %s reading transcription for user %s", ctx.uuid, ctx.user_id)
         with open(ctx.transcription_path or "", "r") as transcription_file:
             transcription = transcription_file.read()
     if isinstance(ctx, ArticleContext):
+        logger.info("task %s reading article for user %s", ctx.uuid, ctx.user_id)
         with open(ctx.article_path or "", "r") as transcription_file:
             transcription = transcription_file.read()
     try:
@@ -150,6 +159,7 @@ def ai_summary(ctx: dict, prompt: str):
             model=TEXT_MODEL, messages=build_summary_prompt(prompt, ctx, transcription)
         )
     except APITimeoutError:
+        logger.error("task %s summary API timeout for user %s", ctx.uuid, ctx.user_id)
         update_status(ctx.uuid, TaskStatus.error)
         fail_task(
             ctx.user_id,

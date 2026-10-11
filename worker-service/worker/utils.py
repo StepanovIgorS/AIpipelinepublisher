@@ -1,4 +1,5 @@
 import os
+import logging
 
 import requests
 
@@ -8,7 +9,7 @@ from worker.notifier import TelegramNotifier
 
 INTERNAL_SECRET = os.getenv("INTERNAL_SECRET") or ""
 error_text = "😔 Упс! Не удалось распознать эту ссылку.\n\nПроверь, что ссылка:\n\n* 🔗 ведет на YouTube или статью в интернете;\n* 🌐 доступна без ограничений;\n* 📋 скопирована полностью, без лишних символов.\n\nПопробуй отправить ссылку еще раз — и я сразу подготовлю красивую выжимку, оформлю пост в нужном стиле и отправлю его в канал. 🚀"
-
+logger = logging.getLogger(__name__)
 
 def get_context_from_dict(ctx: dict) -> Context:
     if ctx.get("context_type") == "video":
@@ -33,6 +34,7 @@ def update_status(uuid: str, status: TaskStatus, error: str | None = None):
             json={"status": status},
             timeout=5,
         )
+    logger.info("task %s status update api call was sent, new status is %s", uuid, status)
 
 
 def fail_task(chat, uuid, reason, text=None):
@@ -42,6 +44,7 @@ def fail_task(chat, uuid, reason, text=None):
         json={"status": TaskStatus.error, "error": reason},
     )
     TelegramNotifier.send_message(user_id=chat, text=text if text else error_text)
+    logger.info("task %s fail api call was sent with reason: %s", uuid, reason)
 
 
 def complete(ctx: Context):
@@ -55,9 +58,11 @@ def complete(ctx: Context):
         headers={"X-Internal-Token": INTERNAL_SECRET},
         timeout=5,
     )
+    logger.info("task %s complete api call was sent", ctx.uuid)
 
 
 def cleanup(ctx: Context):
+    logger.info("Task %s force cleaning up tmp files", ctx.uuid)
     if isinstance(ctx, VideoContext):
         if ctx.transcription_path:
             os.remove(ctx.transcription_path)

@@ -1,10 +1,12 @@
 import os
+import logging
 
 from celery import Celery
 
 from worker.cache import Cache
 
 REDIS_URL = os.getenv("REDIS_URL")
+logging.basicConfig(level=logging.INFO, force=True)
 
 celery_app = Celery("worker_pipeline", broker=REDIS_URL, backend=REDIS_URL)
 Cache.init()
