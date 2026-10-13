@@ -1,10 +1,8 @@
 import math
 import os
-
 from collections.abc import Iterator
 from io import BytesIO
 from typing import BinaryIO
-
 
 MAX_AUDIO_SIZE = 24 * 1024 * 1024
 

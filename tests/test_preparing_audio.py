@@ -1,4 +1,4 @@
-import worker.audio as audio
+from worker import audio
 
 
 def test_audio_lower_limit(tmp_path, monkeypatch):
@@ -11,6 +11,7 @@ def test_audio_lower_limit(tmp_path, monkeypatch):
     assert len(prepared) == 1
     assert prepared[0] == content
 
+
 def test_audio_bigger_limit(tmp_path, monkeypatch):
     monkeypatch.setattr(audio, "MAX_AUDIO_SIZE", 4)
     content = b"abcdefghij"
@@ -22,6 +23,7 @@ def test_audio_bigger_limit(tmp_path, monkeypatch):
     assert len(prepared) == 3
     assert refurbished_content == content
     assert all(len(chunk) <= 4 for chunk in prepared)
+
 
 def test_audio_equals_limit(tmp_path, monkeypatch):
     monkeypatch.setattr(audio, "MAX_AUDIO_SIZE", 4)

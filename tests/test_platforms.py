@@ -13,11 +13,12 @@ from api.platforms import classify_platform, normalize_url
         ("https://dzen.ru/a/123", "dzen"),
         ("https://example.com", "unknown"),
         ("https://asdkjkdafsktr", "unknown"),
-        ("www.youtube.example.ru.com/watch?v=123", "unknown")
-    ]
+        ("www.youtube.example.ru.com/watch?v=123", "unknown"),
+    ],
 )
 def test_platform(url, expected):
     assert classify_platform(url) == expected
+
 
 @pytest.mark.parametrize(
     ("url", "expected"),
@@ -26,7 +27,7 @@ def test_platform(url, expected):
         ("youtube.com/123", "https://youtube.com/123"),
         ("askdkasdk", "https://askdkasdk"),
         ("dzen.ru/a/123", "https://dzen.ru/a/123"),
-    ]
+    ],
 )
 def test_normalize_url(url, expected):
     assert normalize_url(url) == expected

@@ -1,7 +1,6 @@
 import json
 import logging
 import time
-
 from dataclasses import asdict
 from pathlib import Path
 
@@ -12,6 +11,7 @@ TRANSCRIPTS_DIR = CACHE_DIR / "transcripts"
 ARTICLES_DIR = CACHE_DIR / "articles"
 
 logger = logging.getLogger(__name__)
+
 
 class Cache:
     @staticmethod

@@ -1,6 +1,5 @@
-import os
 import logging
-
+import os
 from dataclasses import asdict
 
 from celery import shared_task
@@ -10,11 +9,11 @@ from openai.types.chat import (
     ChatCompletionUserMessageParam,
 )
 
+from worker.audio import prepare_audio
 from worker.cache import Cache
 from worker.enums import TaskStatus
 from worker.models import ArticleContext, Context, VideoContext
 from worker.notifier import TelegramNotifier
-from worker.audio import prepare_audio
 from worker.utils import (
     cleanup,
     complete,
@@ -92,25 +91,40 @@ def build_summary_prompt(
         ),
     ]
 
+
 @shared_task(name="ai.transcribe")
 def ai_transcribe(ctx: dict):
     ctx = VideoContext(**ctx)
     update_status(ctx.uuid, TaskStatus.transcribing)
     if ctx.has_transcription:
-        logger.info("task %s skipping transcribe due to cache for user %s", ctx.uuid, ctx.user_id)
+        logger.info(
+            "task %s skipping transcribe due to cache for user %s",
+            ctx.uuid,
+            ctx.user_id,
+        )
         return asdict(ctx)
     transcription_path = f"/tmp/{ctx.uuid}.txt"
     with open(ctx.audio_path, "rb") as audio_file:
         full_transcription = ""
         for n, audio in enumerate(prepare_audio(audio_file)):
-            logger.debug("task %s transcribing audio chunk %d for user %s", ctx.uuid, n + 1, ctx.user_id)
+            logger.debug(
+                "task %s transcribing audio chunk %d for user %s",
+                ctx.uuid,
+                n + 1,
+                ctx.user_id,
+            )
             try:
                 transcription = client.audio.transcriptions.create(
                     file=audio, model=STT_MODEL, timeout=30
                 )
             except APITimeoutError:
                 update_status(ctx.uuid, TaskStatus.error)
-                logger.error("task %s transcription API timeout for chunk %d for user %s", ctx.uuid, n + 1, ctx.user_id)
+                logger.error(
+                    "task %s transcription API timeout for chunk %d for user %s",
+                    ctx.uuid,
+                    n + 1,
+                    ctx.user_id,
+                )
                 fail_task(
                     ctx.user_id,
                     ctx.uuid,
@@ -123,7 +137,11 @@ def ai_transcribe(ctx: dict):
             f.write(full_transcription)
         ctx.transcription_path = transcription_path
         Cache.save_transcription(ctx, full_transcription)
-        logger.info("task %s transcription completed and saved to cache for user %s", ctx.uuid, ctx.user_id)
+        logger.info(
+            "task %s transcription completed and saved to cache for user %s",
+            ctx.uuid,
+            ctx.user_id,
+        )
         return asdict(ctx)
 
 

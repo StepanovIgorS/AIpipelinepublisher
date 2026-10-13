@@ -1,7 +1,7 @@
 import json
+import logging
 import os
 import re
-import logging
 from dataclasses import asdict
 
 import requests
@@ -14,6 +14,7 @@ from worker.utils import update_status
 
 INTERNAL_SECRET = os.getenv("INTERNAL_SECRET") or ""
 logger = logging.getLogger(__name__)
+
 
 def habr_parser(url: str) -> tuple[str, str]:
     response = requests.get(url, timeout=30)

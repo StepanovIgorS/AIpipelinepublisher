@@ -16,7 +16,6 @@ from fastapi import FastAPI, HTTPException, Request, status
 from api.config import settings
 from api.database import Database
 from api.lang import FAILED_PARSE_LINK_MSG, INITIAL_PROMPT, PROMPT_SUCCESS, WELCOME_MSG
-from api.platforms import classify_platform, normalize_url
 from api.model import (
     Length,
     Payments,
@@ -26,6 +25,7 @@ from api.model import (
     UpdateStatusRequest,
     UserSettings,
 )
+from api.platforms import classify_platform, normalize_url
 
 logging.basicConfig(level=logging.INFO, force=True)
 
@@ -36,9 +36,7 @@ db = Database()
 bot = Bot(token=settings.TG_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
 celery = Celery(
-    'worker_pipeline',
-    broker=settings.REDIS_URL,
-    backend=settings.REDIS_URL
+    "worker_pipeline", broker=settings.REDIS_URL, backend=settings.REDIS_URL
 )
 
 
@@ -130,7 +128,10 @@ async def start(message: types.Message, state: FSMContext):
 @dp.callback_query(Settings.platform)
 async def platform_chosen(callback: types.CallbackQuery, state: FSMContext):
     if not callback.message or not isinstance(callback.message, types.Message):
-        logger.error("Invalid callback message for platform choice for user %s", callback.from_user.id)
+        logger.error(
+            "Invalid callback message for platform choice for user %s",
+            callback.from_user.id,
+        )
         return  # TODO: потом что-нибудь придумаем
     await state.update_data(platform=callback.data)
     await callback.message.answer(
@@ -145,7 +146,9 @@ async def platform_chosen(callback: types.CallbackQuery, state: FSMContext):
 @dp.message(Settings.audience)
 async def audience_chosen(message: types.Message, state: FSMContext):
     if not message.text:
-        logger.error("Invalid message for audience choice for user %s", message.from_user.id)
+        logger.error(
+            "Invalid message for audience choice for user %s", message.from_user.id
+        )
         return  # TODO: потом что-нибудь придумаем
     await state.update_data(audience=message.text)
     builder = InlineKeyboardBuilder()
@@ -163,7 +166,10 @@ async def audience_chosen(message: types.Message, state: FSMContext):
 @dp.callback_query(Settings.length)
 async def length_chosen(callback: types.CallbackQuery, state: FSMContext):
     if not callback.message or not isinstance(callback.message, types.Message):
-        logger.error("Invalid callback message for length choice for user %s", callback.from_user.id)
+        logger.error(
+            "Invalid callback message for length choice for user %s",
+            callback.from_user.id,
+        )
         return  # TODO: потом что-нибудь придумаем
     await state.update_data(length=callback.data)
     await callback.message.answer("Отлично! Теперь напиши промпт для генерации текста")
@@ -176,7 +182,9 @@ async def length_chosen(callback: types.CallbackQuery, state: FSMContext):
 @dp.message(Settings.prompt)
 async def prompt_chosen(message: types.Message, state: FSMContext):
     if not message.text or not message.from_user:
-        logger.error("Invalid message for prompt choice for user %s", message.from_user.id)
+        logger.error(
+            "Invalid message for prompt choice for user %s", message.from_user.id
+        )
         return  # TODO: потом что-нибудь придумаем
     await state.update_data(prompt=message.text)
     user_settings = UserSettings(**await state.get_data())
@@ -215,7 +223,10 @@ async def premium(message: types.Message, state: FSMContext):
 @dp.callback_query(Payments.choosing_subscription)
 async def subscription_chosen(callback: types.CallbackQuery, state: FSMContext):
     if not callback.message or not isinstance(callback.message, types.Message):
-        logger.error("Invalid callback message for subscription choice for user %s", callback.from_user.id)
+        logger.error(
+            "Invalid callback message for subscription choice for user %s",
+            callback.from_user.id,
+        )
         return  # TODO: потом что-нибудь придумаем
     if callback.data == "cancel":
         await callback.message.delete()
@@ -225,7 +236,11 @@ async def subscription_chosen(callback: types.CallbackQuery, state: FSMContext):
     await callback.message.delete()
     month, price = settings.PRICING.get(callback.data, (None, None))
     if not month or not price:
-        logger.warning("Invalid subscription choice %s for user %s", callback.data, callback.from_user.id)
+        logger.warning(
+            "Invalid subscription choice %s for user %s",
+            callback.data,
+            callback.from_user.id,
+        )
         await callback.answer("Ошибка. Повторите попытку", show_alert=True)
         await state.clear()
         return
@@ -246,7 +261,12 @@ async def subscription_chosen(callback: types.CallbackQuery, state: FSMContext):
         int(month),
         invoice.message_id,
     )
-    logger.info("user %s initiated payment for %s months subscription, invoice id: %s", callback.from_user.id, month, uid)
+    logger.info(
+        "user %s initiated payment for %s months subscription, invoice id: %s",
+        callback.from_user.id,
+        month,
+        uid,
+    )
     await callback.answer()
     await state.set_state(Payments.pending)
 
@@ -258,8 +278,10 @@ async def pre_checkout(query: types.PreCheckoutQuery):
             "SELECT user_id, status FROM payments WHERE uuid = $1",
             query.invoice_payload,
         )
-    except Exception as e:
-        logger.exception("Error occurred while fetching payment for user %s", query.from_user.id)
+    except Exception:
+        logger.exception(
+            "Error occurred while fetching payment for user %s", query.from_user.id
+        )
         await query.answer(
             ok=False,
             error_message="Произошла ошибка при обработке оплаты! Попробуйте создать счёт повторно",
@@ -267,7 +289,10 @@ async def pre_checkout(query: types.PreCheckoutQuery):
         return
     if not bill or bill["status"] != "pending" or bill["user_id"] != query.from_user.id:
         await query.answer(ok=False, error_message="Счёт уже оплачен!")
-        logger.warning("Pre-checkout query failed for user %s: bill not found or already paid", query.from_user.id)
+        logger.warning(
+            "Pre-checkout query failed for user %s: bill not found or already paid",
+            query.from_user.id,
+        )
         return
     await query.answer(ok=True)
 
@@ -293,7 +318,11 @@ async def successful_payment(message: types.Message, state: FSMContext):
     await message.answer(
         "Поздравляем с оплатой подписки! пользуйтесь всеми возможностями премиум!"
     )
-    logger.info("user %s successfully paid for subscription, plan: %s", message.from_user.id, bill["plan"])
+    logger.info(
+        "user %s successfully paid for subscription, plan: %s",
+        message.from_user.id,
+        bill["plan"],
+    )
 
 
 @dp.message(F.chat.type == "private", StateFilter(None))
@@ -303,7 +332,10 @@ async def on_message(message: types.Message):
     if not await db.fetchone(
         "SELECT * FROM users WHERE telegram_id = $1", message.from_user.id
     ):
-        logger.warning("User %s not found in database. Prompting to register.", message.from_user.id)
+        logger.warning(
+            "User %s not found in database. Prompting to register.",
+            message.from_user.id,
+        )
         return await message.answer(
             "Пожалуйста, зарегистрируйся, используя команду /start."
         )
@@ -313,9 +345,15 @@ async def on_message(message: types.Message):
         platform = classify_platform(normalized)
         if platform == "unknown":
             return await message.answer(FAILED_PARSE_LINK_MSG)
-        logger.info("Classified platform for user %s: %s", message.from_user.id, platform)
+        logger.info(
+            "Classified platform for user %s: %s", message.from_user.id, platform
+        )
     except ValueError:
-        logger.error("Error occurred while parsing URL for user %s: %s", message.from_user.id, message.text)
+        logger.error(
+            "Error occurred while parsing URL for user %s: %s",
+            message.from_user.id,
+            message.text,
+        )
         return await message.answer(FAILED_PARSE_LINK_MSG)
     active_task = await db.fetchone(
         "SELECT * FROM tasks WHERE telegram_id = $1 AND status=ANY($2)",
@@ -328,8 +366,11 @@ async def on_message(message: types.Message):
         ],
     )
     if active_task:
-        logger.warning("User %s already has an active task %s in the queue.", message.from_user.id, active_task["uuid"])
-        pass
+        logger.warning(
+            "User %s already has an active task %s in the queue.",
+            message.from_user.id,
+            active_task["uuid"],
+        )
         # return await message.answer("У тебя уже есть задача в очереди.") TODO: временно!
     user = await db.fetchone(
         "SELECT * FROM users WHERE telegram_id = $1", message.from_user.id
@@ -347,7 +388,10 @@ async def on_message(message: types.Message):
         and user["free_gens"] <= 0
         and not premium_until
     ):
-        logger.warning("User %s has exhausted free generations and is not premium. Aborting", message.from_user.id)
+        logger.warning(
+            "User %s has exhausted free generations and is not premium. Aborting",
+            message.from_user.id,
+        )
         return await message.answer(
             "Использован лимит бесплатных генераций. Пожалуйста, обнови тариф или подожди до следующего месяца."
         )
@@ -378,7 +422,12 @@ async def on_message(message: types.Message):
             signature("ai.transcribe"),
             signature("ai.summary", args=[user_settings.build_summary_prompt()]),
         ).delay()
-        logger.info("Task for user %s added to queue: %s (video), queue count %s", message.from_user.id, uuid, queue['cnt'])
+        logger.info(
+            "Task for user %s added to queue: %s (video), queue count %s",
+            message.from_user.id,
+            uuid,
+            queue["cnt"],
+        )
     elif url.hostname in settings.ARTICLE_LINKS:
         chain(
             signature(
@@ -387,7 +436,12 @@ async def on_message(message: types.Message):
             ),
             signature("ai.summary", args=[user_settings.build_summary_prompt()]),
         ).delay()
-        logger.info("Task for user %s added to queue: %s (article), queue count %s", message.from_user.id, uuid, queue['cnt'])
+        logger.info(
+            "Task for user %s added to queue: %s (article), queue count %s",
+            message.from_user.id,
+            uuid,
+            queue["cnt"],
+        )
     return await message.answer(
         f"Задача поставлена в очередь на обработку. Ты получишь уведомление, когда она будет завершена.\n\nПозиция в очереди: {queue['cnt']}"
     )

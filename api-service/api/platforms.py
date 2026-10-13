@@ -1,5 +1,7 @@
 from urllib.parse import urlparse
+
 from api.config import settings
+
 
 def classify_platform(url: str) -> str:
     parsed = urlparse(url)
@@ -28,6 +30,7 @@ def classify_platform(url: str) -> str:
             return platform
 
     return hostname
+
 
 def normalize_url(url: str) -> str:
     url = url.strip()

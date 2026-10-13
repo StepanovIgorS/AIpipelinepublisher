@@ -1,6 +1,7 @@
 import pytest
+from worker.models import ArticleContext, VideoContext
 from worker.utils import get_context_from_dict
-from worker.models import VideoContext, ArticleContext
+
 
 def test_context_from_dict_returns_videocontext():
     data = {
@@ -17,8 +18,6 @@ def test_context_from_dict_returns_videocontext():
     context = get_context_from_dict(data)
     assert isinstance(context, VideoContext)
     assert context == VideoContext(**data)
-
-
 
 
 def test_context_from_dict_returns_articlecontext():

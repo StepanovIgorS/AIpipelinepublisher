@@ -1,6 +1,6 @@
 import asyncio
-import os
 import logging
+import os
 
 from aiogram import Bot
 
@@ -28,7 +28,9 @@ class TelegramNotifier:
             cls.__start()
         for n, chunk in enumerate(split_message(text)):
             logger.info("Sending message chunk %d to user %d", n, user_id)
-            cls.loop.run_until_complete(cls.bot.send_message(chat_id=user_id, text=chunk))
+            cls.loop.run_until_complete(
+                cls.bot.send_message(chat_id=user_id, text=chunk)
+            )
 
     @classmethod
     def shutdown(cls):

@@ -1,5 +1,5 @@
-import os
 import logging
+import os
 
 import requests
 
@@ -10,6 +10,7 @@ from worker.notifier import TelegramNotifier
 INTERNAL_SECRET = os.getenv("INTERNAL_SECRET") or ""
 error_text = "😔 Упс! Не удалось распознать эту ссылку.\n\nПроверь, что ссылка:\n\n* 🔗 ведет на YouTube или статью в интернете;\n* 🌐 доступна без ограничений;\n* 📋 скопирована полностью, без лишних символов.\n\nПопробуй отправить ссылку еще раз — и я сразу подготовлю красивую выжимку, оформлю пост в нужном стиле и отправлю его в канал. 🚀"
 logger = logging.getLogger(__name__)
+
 
 def get_context_from_dict(ctx: dict) -> Context:
     if ctx.get("context_type") == "video":
@@ -34,7 +35,9 @@ def update_status(uuid: str, status: TaskStatus, error: str | None = None):
             json={"status": status},
             timeout=5,
         )
-    logger.info("task %s status update api call was sent, new status is %s", uuid, status)
+    logger.info(
+        "task %s status update api call was sent, new status is %s", uuid, status
+    )
 
 
 def fail_task(chat, uuid, reason, text=None):
