@@ -1,6 +1,7 @@
 import logging
 import os
 from dataclasses import asdict
+from pathlib import Path
 
 import yt_dlp
 from celery import shared_task
@@ -15,6 +16,8 @@ from worker.utils import fail_task, update_status
 
 logger = logging.getLogger(__name__)
 
+TMP_DIR = Path("/tmp")
+
 ydl_opts = {
     "noplaylist": True,
     "format": "bestaudio/best",
@@ -27,7 +30,7 @@ def get_download_options(uuid: str) -> dict:
     return {
         "noplaylist": True,
         "format": "m4a/bestaudio/best",
-        "outtmpl": f"/tmp/{uuid}.%(ext)s",
+        "outtmpl": str(TMP_DIR / f"{uuid}.%(ext)s"),
         "quiet": True,
         "no_warnings": True,
         "postprocessors": [{"key": "FFmpegExtractAudio", "preferredcodec": "mp3"}],
@@ -80,7 +83,7 @@ def download_video(user_id: int, uuid: str, url: str, platform: str, is_premium:
         )
         if cached_ctx := Cache.get_transcription(info.get("id", "")):
             logger.info("task %s found cached transcription for user %s", uuid, user_id)
-            transcription_path = f"/tmp/{uuid}.txt"
+            transcription_path = str(TMP_DIR / f"{uuid}.txt")
             with open(transcription_path, "w") as f:
                 f.write(cached_ctx.transcription)
             ctx = VideoContext(

@@ -18,7 +18,6 @@ class TelegramNotifier:
     @classmethod
     def __start(cls):
         cls.loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(cls.loop)
         cls.bot = Bot(token=os.getenv("BOT_TOKEN"))
         cls.is_active = True
 
@@ -34,7 +33,7 @@ class TelegramNotifier:
 
     @classmethod
     def shutdown(cls):
-        if cls.bot and cls.bot.session is not None:
+        if cls.is_active and cls.bot and cls.bot.session is not None:
             cls.loop.run_until_complete(cls.bot.session.close())
             cls.loop.close()
             cls.is_active = False
