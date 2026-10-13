@@ -1,11 +1,7 @@
-import math
 import os
 import logging
 
-from collections.abc import Iterator
 from dataclasses import asdict
-from io import BytesIO
-from typing import BinaryIO
 
 from celery import shared_task
 from openai import APITimeoutError, OpenAI
@@ -18,6 +14,7 @@ from worker.cache import Cache
 from worker.enums import TaskStatus
 from worker.models import ArticleContext, Context, VideoContext
 from worker.notifier import TelegramNotifier
+from worker.audio import prepare_audio
 from worker.utils import (
     cleanup,
     complete,
@@ -61,7 +58,6 @@ SYSTEM_PROMPT = """
 - С удовольствием.
 
 Твоя цель — сделать текст интересным, понятным и удобным для чтения."""
-MAX_AUDIO_SIZE = 24 * 1024 * 1024
 logger = logging.getLogger(__name__)
 
 client = OpenAI(
@@ -95,17 +91,6 @@ def build_summary_prompt(
 </Transcript>""",
         ),
     ]
-
-
-def prepare_audio(file: BinaryIO) -> Iterator[BinaryIO]:
-    size = os.fstat(file.fileno()).st_size
-    if size <= MAX_AUDIO_SIZE:
-        yield file
-        return
-    count = math.ceil(size / MAX_AUDIO_SIZE)
-    for i in range(count):
-        yield BytesIO(file.read(MAX_AUDIO_SIZE))
-
 
 @shared_task(name="ai.transcribe")
 def ai_transcribe(ctx: dict):
