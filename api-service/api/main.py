@@ -16,6 +16,7 @@ from fastapi import FastAPI, HTTPException, Request, status
 from api.config import settings
 from api.database import Database
 from api.lang import FAILED_PARSE_LINK_MSG, INITIAL_PROMPT, PROMPT_SUCCESS, WELCOME_MSG
+from api.platforms import classify_platform, normalize_url
 from api.model import (
     Length,
     Payments,
@@ -295,35 +296,6 @@ async def successful_payment(message: types.Message, state: FSMContext):
     logger.info("user %s successfully paid for subscription, plan: %s", message.from_user.id, bill["plan"])
 
 
-def classify_platform(url: str) -> str:
-    parsed = urlparse(url)
-    hostname = parsed.hostname
-    if not hostname:
-        return "unknown"
-
-    hostname = hostname.lower()
-    domain_to_platform = {
-        "youtube.com": "youtube",
-        "youtu.be": "youtube",
-        "rutube.ru": "rutube",
-        "vkvideo.ru": "vkvideo",
-        "habr.com": "habr",
-        "pikabu.ru": "pikabu",
-        "dzen.ru": "dzen",
-    }
-
-    if hostname not in settings.VIDEO_LINKS + settings.ARTICLE_LINKS:
-        return "unknown"
-
-    for domain, platform in domain_to_platform.items():
-        if hostname == domain or hostname.endswith(f".{domain}"):
-            if platform == "dzen" and parsed.path.strip("/").split("/")[0] != "a":
-                return "unknown"
-            return platform
-
-    return hostname
-
-
 @dp.message(F.chat.type == "private", StateFilter(None))
 async def on_message(message: types.Message):
     if message.from_user is None or not message.text:
@@ -336,8 +308,9 @@ async def on_message(message: types.Message):
             "Пожалуйста, зарегистрируйся, используя команду /start."
         )
     try:
-        url = urlparse(message.text)
-        platform = classify_platform(message.text)
+        normalized = normalize_url(message.text)
+        url = urlparse(normalized)
+        platform = classify_platform(normalized)
         if platform == "unknown":
             return await message.answer(FAILED_PARSE_LINK_MSG)
         logger.info("Classified platform for user %s: %s", message.from_user.id, platform)

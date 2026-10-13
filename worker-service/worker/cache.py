@@ -1,4 +1,7 @@
 import json
+import logging
+import time
+
 from dataclasses import asdict
 from pathlib import Path
 
@@ -8,6 +11,7 @@ CACHE_DIR = Path("/cache")
 TRANSCRIPTS_DIR = CACHE_DIR / "transcripts"
 ARTICLES_DIR = CACHE_DIR / "articles"
 
+logger = logging.getLogger(__name__)
 
 class Cache:
     @staticmethod
@@ -34,3 +38,11 @@ class Cache:
             serialized = path.read_text()
             return VideoCache(**json.loads(serialized))
         return None
+
+    @staticmethod
+    def cleanup_directory(directory: Path, ttl: int):
+        logger.info("Cleaning up directory: %s", directory)
+        for path in directory.glob("*"):
+            if time.time() - path.stat().st_atime > ttl:
+                logger.debug("Cache cleanup: Removing file: %s", path)
+                path.unlink(missing_ok=True)
