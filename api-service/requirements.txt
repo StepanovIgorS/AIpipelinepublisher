@@ -5,3 +5,4 @@ aiogram
 python-dotenv
 asyncpg
 uvicorn
+alembic

@@ -3,6 +3,7 @@ import logging
 import os
 import re
 from dataclasses import asdict
+from pathlib import Path
 
 import requests
 from bs4 import BeautifulSoup
@@ -13,6 +14,7 @@ from worker.models import ArticleContext
 from worker.utils import update_status
 
 INTERNAL_SECRET = os.getenv("INTERNAL_SECRET") or ""
+TMP_DIR = Path("/tmp")
 logger = logging.getLogger(__name__)
 
 
@@ -108,7 +110,7 @@ def article_fetch(user_id: int, uuid: str, url: str, platform: str):
     update_status(uuid, TaskStatus.downloading)
     parser = ARTICLE_PARSERS.get(platform)
     title, content = parser(url)
-    article_path = f"/tmp/{uuid}.txt"
+    article_path = TMP_DIR / f"{uuid}.txt"
     with open(article_path, "w") as f:
         f.write(content)
     ctx = ArticleContext(
@@ -119,7 +121,7 @@ def article_fetch(user_id: int, uuid: str, url: str, platform: str):
         description=None,
         platform=platform,
         platform_id=url,
-        article_path=article_path,
+        article_path=str(article_path),
     )
     logger.info("task %s article fetched", uuid)
     return asdict(ctx)
