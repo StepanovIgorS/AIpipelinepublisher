@@ -51,11 +51,7 @@ def fail_task(chat, uuid, reason, text=None):
 
 
 def complete(ctx: Context):
-    if isinstance(ctx, VideoContext):
-        if ctx.transcription_path:
-            os.remove(ctx.transcription_path)
-        if ctx.audio_path:
-            os.remove(ctx.audio_path)
+    cleanup(ctx)
     requests.post(
         f"http://api-service:8000/internal/complete/{ctx.uuid}",
         headers={"X-Internal-Token": INTERNAL_SECRET},
@@ -71,3 +67,6 @@ def cleanup(ctx: Context):
             os.remove(ctx.transcription_path)
         if ctx.audio_path:
             os.remove(ctx.audio_path)
+    if isinstance(ctx, ArticleContext):
+        if ctx.article_path:
+            os.remove(ctx.article_path)

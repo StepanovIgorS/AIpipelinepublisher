@@ -1,6 +1,7 @@
 import logging
 import os
 from dataclasses import asdict
+from pathlib import Path
 
 from celery import shared_task
 from openai import APITimeoutError, OpenAI
@@ -25,6 +26,7 @@ from worker.utils import (
 INTERNAL_SECRET = os.getenv("INTERNAL_SECRET") or ""
 STT_MODEL = os.getenv("AI_STT_MODEL") or ""
 TEXT_MODEL = os.getenv("AI_TEXT_MODEL") or ""
+TMP_PATH = Path("/tmp")
 SYSTEM_PROMPT = """
 Ты — профессиональный редактор и автор текстов.
 
@@ -103,7 +105,7 @@ def ai_transcribe(ctx: dict):
             ctx.user_id,
         )
         return asdict(ctx)
-    transcription_path = f"/tmp/{ctx.uuid}.txt"
+    transcription_path = str(TMP_PATH / f"{ctx.uuid}.txt")
     with open(ctx.audio_path, "rb") as audio_file:
         full_transcription = ""
         for n, audio in enumerate(prepare_audio(audio_file)):
