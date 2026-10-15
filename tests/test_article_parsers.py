@@ -2,8 +2,8 @@ import json
 from unittest.mock import MagicMock, patch
 
 from worker.enums import TaskStatus
-from worker.tasks import article
 from worker.models import ArticleContext
+from worker.tasks import article
 
 HABR_HTML = """
 <!DOCTYPE html>
@@ -105,8 +105,12 @@ def test_habr_parser():
         title, content = article.habr_parser("https://example.com")
 
         assert title == "Тестовая статья Habr"
-        assert content == "Первый абзац статьи.\n\nВторой абзац статьи.\n\nВажный раздел\n\nТретий абзац статьи."
+        assert (
+            content
+            == "Первый абзац статьи.\n\nВторой абзац статьи.\n\nВажный раздел\n\nТретий абзац статьи."
+        )
         mock_get.assert_called_once_with("https://example.com", timeout=30)
+
 
 def test_pikabu_parser():
     with patch("worker.tasks.article.requests.get") as mock_get:
@@ -114,8 +118,12 @@ def test_pikabu_parser():
         title, content = article.pikabu_parser("https://example.com")
 
         assert title.strip() == "Тестовая история Pikabu"
-        assert content == "Первый абзац истории.\n\nВторой абзац истории.\n\nТретий абзац истории."
+        assert (
+            content
+            == "Первый абзац истории.\n\nВторой абзац истории.\n\nТретий абзац истории."
+        )
         mock_get.assert_called_once_with("https://example.com", timeout=30)
+
 
 def test_dzen_parser():
     with patch("worker.tasks.article.fetch_dzen_article") as mock_fetch:
@@ -123,7 +131,10 @@ def test_dzen_parser():
         title, content = article.dzen_parser("https://example.com")
 
         assert title == "Тестовая статья Дзена"
-        assert content == "Первый абзац статьи Дзена.\n\nВторой абзац статьи Дзена.\n\nЗаключительная мысль."
+        assert (
+            content
+            == "Первый абзац статьи Дзена.\n\nВторой абзац статьи Дзена.\n\nЗаключительная мысль."
+        )
         mock_fetch.assert_called_once_with("https://example.com")
 
 
@@ -135,16 +146,16 @@ def test_article_fetch(tmp_path, monkeypatch):
 
         fake_habr.return_value = ("test title", "test content")
 
-        monkeypatch.setattr(article, "ARTICLE_PARSERS", {
-            "dzen": fake_dzen,
-            "pikabu": fake_pikabu,
-            "habr": fake_habr
-        })
+        monkeypatch.setattr(
+            article,
+            "ARTICLE_PARSERS",
+            {"dzen": fake_dzen, "pikabu": fake_pikabu, "habr": fake_habr},
+        )
         monkeypatch.setattr(article, "TMP_DIR", tmp_path)
         context = ArticleContext(
-            context_type = "article",
-            uuid = "test-uuid",
-            user_id = 123,
+            context_type="article",
+            uuid="test-uuid",
+            user_id=123,
             title="test title",
             description=None,
             platform="habr",
@@ -152,7 +163,9 @@ def test_article_fetch(tmp_path, monkeypatch):
             article_path=str(tmp_path / "test-uuid.txt"),
         )
 
-        actual_context = article.article_fetch.run(123, "test-uuid", "https://habr.com", "habr")
+        actual_context = article.article_fetch.run(
+            123, "test-uuid", "https://habr.com", "habr"
+        )
 
         mock_status.assert_called_once_with("test-uuid", TaskStatus.downloading)
         fake_dzen.assert_not_called()
@@ -161,4 +174,3 @@ def test_article_fetch(tmp_path, monkeypatch):
         assert (tmp_path / "test-uuid.txt").exists()
         assert (tmp_path / "test-uuid.txt").read_text() == "test content"
         assert context == ArticleContext(**actual_context)
-

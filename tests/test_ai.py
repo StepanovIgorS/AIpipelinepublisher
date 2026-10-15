@@ -1,15 +1,13 @@
-import pytest
-
 from dataclasses import asdict
-from unittest.mock import patch, ANY, call
 from types import SimpleNamespace
+from unittest.mock import ANY, call, patch
+
+import pytest
 from httpx import Request
-
 from openai import APITimeoutError
-
-from worker.tasks import ai
-from worker.models import VideoContext, ArticleContext
 from worker.enums import TaskStatus
+from worker.models import ArticleContext, VideoContext
+from worker.tasks import ai
 
 
 def fake_transcription_create(file, model, timeout):
@@ -18,14 +16,18 @@ def fake_transcription_create(file, model, timeout):
 
 
 def fake_summary_create(model, messages):
-    return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content="test summary result"))])
+    return SimpleNamespace(
+        choices=[
+            SimpleNamespace(message=SimpleNamespace(content="test summary result"))
+        ]
+    )
 
 
 def test_ai_transcribe_success_without_cache(tmp_path, monkeypatch):
     with (
         patch("worker.tasks.ai.update_status") as mock_status,
         patch("worker.tasks.ai.client.audio.transcriptions.create") as mock_create,
-        patch("worker.tasks.ai.Cache.save_transcription") as mock_cache_save
+        patch("worker.tasks.ai.Cache.save_transcription") as mock_cache_save,
     ):
         monkeypatch.setattr(ai, "TMP_PATH", tmp_path)
         audio_file = tmp_path / "test-audio.mp3"
@@ -41,7 +43,7 @@ def test_ai_transcribe_success_without_cache(tmp_path, monkeypatch):
             description="test description",
             platform="youtube",
             platform_id="test-platform-id",
-            audio_path=str(tmp_path / "test-audio.mp3")
+            audio_path=str(tmp_path / "test-audio.mp3"),
         )
 
         context_with_transcription = VideoContext(
@@ -53,7 +55,7 @@ def test_ai_transcribe_success_without_cache(tmp_path, monkeypatch):
             platform="youtube",
             platform_id="test-platform-id",
             audio_path=str(tmp_path / "test-audio.mp3"),
-            transcription_path=str(tmp_path / "test-uuid.txt")
+            transcription_path=str(tmp_path / "test-uuid.txt"),
         )
 
         actual_context = VideoContext(**ai.ai_transcribe.run(asdict(context)))
@@ -62,7 +64,9 @@ def test_ai_transcribe_success_without_cache(tmp_path, monkeypatch):
         assert transcription_file.exists()
         assert transcription_file.read_text().strip() == "test audio data"
         mock_create.assert_called_once_with(file=ANY, model=ai.STT_MODEL, timeout=30)
-        mock_cache_save.assert_called_once_with(context_with_transcription, transcription_file.read_text())
+        mock_cache_save.assert_called_once_with(
+            context_with_transcription, transcription_file.read_text()
+        )
         assert context_with_transcription == actual_context
 
 
@@ -70,7 +74,7 @@ def test_ai_transcribe_success_with_cache(tmp_path, monkeypatch):
     with (
         patch("worker.tasks.ai.update_status") as mock_status,
         patch("worker.tasks.ai.client.audio.transcriptions.create") as mock_create,
-        patch("worker.tasks.ai.Cache.save_transcription") as mock_cache_save
+        patch("worker.tasks.ai.Cache.save_transcription") as mock_cache_save,
     ):
         transcription_file = tmp_path / "test-uuid.txt"
         transcription_file.write_text("test transcription")
@@ -84,7 +88,7 @@ def test_ai_transcribe_success_with_cache(tmp_path, monkeypatch):
             platform="youtube",
             platform_id="test-platform-id",
             audio_path=str(tmp_path / "test-audio.mp3"),
-            transcription_path=str(tmp_path / "test-uuid.txt")
+            transcription_path=str(tmp_path / "test-uuid.txt"),
         )
 
         actual_context = VideoContext(**ai.ai_transcribe.run(asdict(context)))
@@ -100,7 +104,7 @@ def test_ai_transcribe_raises_timeout_error(tmp_path, monkeypatch):
         patch("worker.tasks.ai.update_status") as mock_status,
         patch("worker.tasks.ai.client.audio.transcriptions.create") as mock_create,
         patch("worker.tasks.ai.Cache.save_transcription") as mock_cache_save,
-        patch("worker.tasks.ai.fail_task") as mock_fail
+        patch("worker.tasks.ai.fail_task") as mock_fail,
     ):
         monkeypatch.setattr(ai, "TMP_PATH", tmp_path)
         audio_file = tmp_path / "test-audio.mp3"
@@ -115,19 +119,23 @@ def test_ai_transcribe_raises_timeout_error(tmp_path, monkeypatch):
             description="test description",
             platform="youtube",
             platform_id="test-platform-id",
-            audio_path=str(tmp_path / "test-audio.mp3")
+            audio_path=str(tmp_path / "test-audio.mp3"),
         )
 
         with pytest.raises(APITimeoutError):
             VideoContext(**ai.ai_transcribe.run(asdict(context)))
 
-        mock_status.assert_has_calls([
-            call("test-uuid", TaskStatus.transcribing),
-            call("test-uuid", TaskStatus.error),
-        ])
+        mock_status.assert_has_calls(
+            [
+                call("test-uuid", TaskStatus.transcribing),
+                call("test-uuid", TaskStatus.error),
+            ]
+        )
         mock_create.assert_called_once_with(file=ANY, model=ai.STT_MODEL, timeout=30)
         mock_cache_save.assert_not_called()
-        mock_fail.assert_called_once_with(123, "test-uuid", "Transcription timeout", ANY)
+        mock_fail.assert_called_once_with(
+            123, "test-uuid", "Transcription timeout", ANY
+        )
 
 
 def test_ai_summarize_video_success(tmp_path):
@@ -151,7 +159,7 @@ def test_ai_summarize_video_success(tmp_path):
             platform="youtube",
             platform_id="test-platform-id",
             audio_path=str(tmp_path / "test-audio.mp3"),
-            transcription_path=str(tmp_path / "test-uuid.txt")
+            transcription_path=str(tmp_path / "test-uuid.txt"),
         )
 
         ai.ai_summary.run(asdict(context), "test prompt")
@@ -231,7 +239,7 @@ def test_ai_summarize_raises_timeout_error(tmp_path):
         patch("worker.tasks.ai.TelegramNotifier.send_message") as mock_send_message,
         patch("worker.tasks.ai.complete") as mock_complete,
         patch("worker.tasks.ai.build_summary_prompt") as mock_build_prompt,
-        patch("worker.tasks.ai.cleanup") as mock_cleanup
+        patch("worker.tasks.ai.cleanup") as mock_cleanup,
     ):
         article = tmp_path / "test-uuid.txt"
         article.write_text("test article text")
@@ -251,11 +259,15 @@ def test_ai_summarize_raises_timeout_error(tmp_path):
         with pytest.raises(APITimeoutError):
             ai.ai_summary.run(asdict(context), "test prompt")
 
-        mock_build_prompt.assert_called_once_with("test prompt", context, "test article text")
-        mock_status.assert_has_calls([
-            call("test-uuid", TaskStatus.summarizing),
-            call("test-uuid", TaskStatus.error),
-        ])
+        mock_build_prompt.assert_called_once_with(
+            "test prompt", context, "test article text"
+        )
+        mock_status.assert_has_calls(
+            [
+                call("test-uuid", TaskStatus.summarizing),
+                call("test-uuid", TaskStatus.error),
+            ]
+        )
         mock_fail.assert_called_once_with(123, "test-uuid", "Summary timeout", ANY)
         mock_cleanup.assert_called_once_with(context)
         mock_send_message.assert_not_called()

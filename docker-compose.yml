@@ -7,7 +7,7 @@ services:
     container_name: pipeline_postgres
     environment:
       POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
+      POSTGRES_PASSWORD: uuhj104CVK
       POSTGRES_DB: pipeline
     ports:
       - "5432:5432"
