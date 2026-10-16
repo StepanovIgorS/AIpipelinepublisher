@@ -147,32 +147,3 @@ def shutdown(**kwargs):
         logger.exception("Failed to shutdown TelegramNotifier")
 
 
-"""
-
-Когда MVP готов, начинаешь делать его "боевым":
-добавить секрет к webhook
-
-логирование;
-retry;
-таймауты;
-обработка ошибок;
-health;
-request_id.
-
-То есть ты ничего не меняешь в бизнес-логике, а повышаешь надежность.
-
-Этап 3. Масштабирование
-
-Если захочешь впечатлить работодателя:
-
-Prometheus;
-Grafana;
-метрики Celery;
-мониторинг Redis;
-Docker Healthcheck;
-CI/CD (GitHub Actions);
-тесты;
-линтеры;
-pre-commit.
-
-"""

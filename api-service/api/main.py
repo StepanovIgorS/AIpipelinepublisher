@@ -371,7 +371,7 @@ async def on_message(message: types.Message):
             message.from_user.id,
             active_task["uuid"],
         )
-        # return await message.answer("У тебя уже есть задача в очереди.") TODO: временно!
+        return await message.answer("У тебя уже есть задача в очереди.")
     user = await db.fetchone(
         "SELECT * FROM users WHERE telegram_id = $1", message.from_user.id
     )
