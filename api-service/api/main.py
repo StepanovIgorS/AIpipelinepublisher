@@ -59,11 +59,11 @@ app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None
 
 @app.post("/webhook")
 async def webhook(request: Request):
-    bot_update = types.Update.model_validate(await request.json(), context={"bot": bot})
     if settings.TELEGRAM_SECRET_TOKEN != request.headers.get(
         "X-Telegram-Bot-Api-Secret-Token"
     ):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
+    bot_update = types.Update.model_validate(await request.json(), context={"bot": bot})
     await dp.feed_update(bot, bot_update)
     logger.debug("Update received: %s", bot_update)
     return {"status": "ok"}

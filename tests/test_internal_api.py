@@ -40,7 +40,7 @@ def test_webhook_status_raises_401_unauthorized():
         response = client.post("/webhook", json={None: None})
 
         assert response.status_code == 401
-        mock_validate.assert_called_once()
+        mock_validate.assert_not_called()
         mock_update.assert_not_awaited()
 
 
