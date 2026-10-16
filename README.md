@@ -1,8 +1,10 @@
 # AI Pipeline Publisher
 
-A Telegram bot that turns supported video and article links into post-ready text adapted to a user's chosen platform, audience, length, and writing instructions.
+**A microservice-based backend for asynchronous content processing.**
 
-The application uses an asynchronous task pipeline so that downloading, parsing, transcription, and AI summarization do not block incoming requests.
+AI Pipeline Publisher is a Telegram bot that turns supported video and article links into post-ready text adapted to a user's chosen platform, audience, length, and writing instructions.
+
+The backend separates request handling from long-running processing: the FastAPI service accepts Telegram webhook updates and manages user/task state, while Celery workers handle article parsing, video downloading, transcription, and AI summarization. Redis decouples API requests from background jobs, and PostgreSQL stores durable application state. The API, worker, and scheduler run as separate Docker Compose services with focused responsibilities.
 
 ## Features
 
@@ -16,7 +18,17 @@ The application uses an asynchronous task pipeline so that downloading, parsing,
 - Supports Premium subscriptions through Telegram Payments.
 - Caches transcriptions and periodically cleans up expired cache entries.
 
-## Architecture
+## Microservice architecture
+
+The application is split into independently running application services rather than performing the entire workflow inside the HTTP request handler:
+
+- **API service** — handles the Telegram webhook, user interactions, task creation, payment callbacks, and task status/completion endpoints.
+- **Worker service** — performs slow or resource-intensive work outside the API process: downloading media, parsing articles, preparing audio, transcription, and text generation.
+- **Beat service** — schedules periodic background jobs such as cache cleanup.
+
+The API dispatches jobs through Celery using Redis as the broker/backend. The worker reports task status and completion back to the API through internal HTTP endpoints. PostgreSQL stores users, task state, and payment records. Docker Compose runs these components as separate containers and starts the application services after the database migration step succeeds.
+
+This is a compact microservice-oriented design focused on separating synchronous request handling from asynchronous processing; it is not intended to claim the operational complexity of a large production distributed system.
 
 ```mermaid
 flowchart LR
@@ -43,6 +55,13 @@ flowchart LR
 | `migrate` | Applies pending database migrations before API and Worker start |
 | `postgres` | Stores users, processing tasks, and payments |
 | `redis` | Celery broker and result backend |
+
+### Architectural decisions
+
+- **Asynchronous job processing:** long-running media and AI work is handled by Celery workers instead of blocking the webhook/API request path.
+- **Queue-based decoupling:** Redis carries jobs between the API and worker processes.
+- **Separate runtime responsibilities:** API, worker, and scheduler are built/run as separate Docker Compose services.
+- **Explicit database evolution:** Alembic applies versioned SQL migrations, while the application continues to use `asyncpg` without ORM models.
 
 ## Tech stack
 
