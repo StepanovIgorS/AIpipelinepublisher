@@ -28,7 +28,6 @@ The application is split into independently running application services rather 
 
 The API dispatches jobs through Celery using Redis as the broker/backend. The worker reports task status and completion back to the API through internal HTTP endpoints. PostgreSQL stores users, task state, and payment records. Docker Compose runs these components as separate containers and starts the application services after the database migration step succeeds.
 
-This is a compact microservice-oriented design focused on separating synchronous request handling from asynchronous processing; it is not intended to claim the operational complexity of a large production distributed system.
 
 ```mermaid
 flowchart LR
